@@ -7,6 +7,8 @@ import json
 import os
 import time
 import getpass
+import socket
+import threading
 from pathlib import Path
 from typing import Any
 
@@ -15,6 +17,9 @@ def dependency_error(package_name: str) -> SystemExit:
     return SystemExit(
         f"Missing dependency '{package_name}'. Install with: pip install -r requirements.txt"
     )
+
+
+OSCQUERY_SERVICE_TYPE = "_oscjson._tcp.local."
 
 
 def default_cred_path() -> Path:
@@ -90,10 +95,10 @@ def load_credentials(path: Path) -> dict[str, Any]:
     return json.loads(path.read_text(encoding="utf-8"))
 
 
-def trend_arrow(trend: str | None) -> str:
-    if not trend:
+def arrow(direction: str | None) -> str:
+    if not direction:
         return ""
-    d = trend.lower().replace("_", "").replace("-", "").replace(" ", "")
+    d = direction.lower().replace("_", "").replace("-", "").replace(" ", "")
     return {
         "doubleup": "↑↑",
         "singleup": "↑",
@@ -165,6 +170,140 @@ def reading_trend(dex: Any, reading: Any) -> str | None:
     return None
 
 
+def _first_ipv4_from_service_info(info: Any) -> str | None:
+    addresses: list[str] = []
+    parsed_addresses = getattr(info, "parsed_addresses", None)
+    if callable(parsed_addresses):
+        try:
+            addresses = list(parsed_addresses())
+        except Exception:
+            addresses = []
+    if not addresses:
+        raw_addresses = getattr(info, "addresses", []) or []
+        for raw in raw_addresses:
+            if isinstance(raw, (bytes, bytearray)) and len(raw) == 4:
+                addresses.append(socket.inet_ntoa(raw))
+    for ip in addresses:
+        if ":" not in ip:
+            return ip
+    return None
+
+
+def _query_host_info(ip: str, tcp_port: int, timeout: float = 1.5) -> dict[str, Any]:
+    from urllib.request import urlopen
+
+    urls = [
+        f"http://{ip}:{tcp_port}?HOST_INFO",
+        f"http://{ip}:{tcp_port}/?HOST_INFO",
+    ]
+    for url in urls:
+        try:
+            with urlopen(url, timeout=timeout) as response:
+                payload = response.read().decode("utf-8", errors="replace")
+            data = json.loads(payload)
+            if isinstance(data, dict):
+                return data
+        except Exception:
+            continue
+    return {}
+
+
+def detect_vrchat_osc_endpoint(timeout_s: float) -> tuple[str, int] | None:
+    try:
+        from zeroconf import ServiceBrowser, ServiceListener, Zeroconf
+    except ModuleNotFoundError as exc:
+        raise dependency_error("zeroconf") from exc
+
+    class Collector(ServiceListener):
+        def __init__(self) -> None:
+            self._names: set[str] = set()
+            self._lock = threading.Lock()
+
+        def add_service(self, zc: Any, service_type: str, name: str) -> None:
+            with self._lock:
+                self._names.add(name)
+
+        def update_service(self, zc: Any, service_type: str, name: str) -> None:
+            with self._lock:
+                self._names.add(name)
+
+        def remove_service(self, zc: Any, service_type: str, name: str) -> None:
+            pass
+
+        def snapshot(self) -> list[str]:
+            with self._lock:
+                return sorted(self._names)
+
+    zc = Zeroconf()
+    collector = Collector()
+    browser = ServiceBrowser(zc, OSCQUERY_SERVICE_TYPE, collector)
+    try:
+        time.sleep(max(timeout_s, 0.5))
+        names = collector.snapshot()
+        candidates: list[dict[str, Any]] = []
+        for name in names:
+            info = zc.get_service_info(OSCQUERY_SERVICE_TYPE, name, timeout=1000)
+            if info is None:
+                continue
+            service_ip = _first_ipv4_from_service_info(info)
+            if not service_ip:
+                continue
+            host_info = _query_host_info(service_ip, int(info.port))
+            host_name = str(host_info.get("NAME", ""))
+            osc_ip = str(host_info.get("OSC_IP", "")).strip()
+            osc_port = host_info.get("OSC_PORT")
+            try:
+                osc_port_val = int(osc_port) if osc_port is not None else 9000
+            except (TypeError, ValueError):
+                osc_port_val = 9000
+
+            target_ip = osc_ip or service_ip
+            if target_ip.startswith("127.") and not service_ip.startswith("127."):
+                target_ip = service_ip
+
+            service_name_l = name.lower()
+            host_name_l = host_name.lower()
+            score = 0
+            if "vrchat" in service_name_l:
+                score += 100
+            if "vrchat" in host_name_l:
+                score += 80
+            if not target_ip.startswith("127."):
+                score += 40
+
+            candidates.append(
+                {
+                    "score": score,
+                    "target_ip": target_ip,
+                    "osc_port": osc_port_val,
+                }
+            )
+
+        if not candidates:
+            return None
+        best = max(candidates, key=lambda item: item["score"])
+        return str(best["target_ip"]), int(best["osc_port"])
+    finally:
+        zc.close()
+
+
+def resolve_quest_endpoint(quest_ip: str, quest_port: int, timeout_s: float) -> tuple[str, int]:
+    requested = (quest_ip or "").strip()
+    if requested and requested.lower() not in ("auto", "oscquery"):
+        return requested, quest_port
+
+    detected = detect_vrchat_osc_endpoint(timeout_s=timeout_s)
+    if not detected:
+        raise SystemExit(
+            "Could not auto-detect VRChat via OSCQuery.\n"
+            "Make sure VRChat is running on Quest, OSC is enabled, and both devices are on the same LAN.\n"
+            "Then retry with --quest-ip auto or pass --quest-ip manually."
+        )
+
+    detected_ip, _detected_port = detected
+    return detected_ip, quest_port
+
+
 def cmd_setup(args: argparse.Namespace) -> None:
     cred_path = Path(args.cred_file).expanduser()
     region = normalize_region(args.region)
@@ -207,11 +346,16 @@ def cmd_run(args: argparse.Namespace) -> None:
     password = decrypt_password(cfg["encrypted_password"], master)
     dex = create_dexcom_client(username=username, password=password, region=region)
 
-    client = SimpleUDPClient(args.quest_ip, args.quest_port)
+    quest_ip, quest_port = resolve_quest_endpoint(
+        quest_ip=args.quest_ip,
+        quest_port=args.quest_port,
+        timeout_s=args.oscquery_timeout,
+    )
+    client = SimpleUDPClient(quest_ip, quest_port)
     last_bg = None
     print(
         "Running Dexcom(Share)->OSC: "
-        f"Quest {args.quest_ip}:{args.quest_port} interval={args.interval}s min_delta={args.min_delta}"
+        f"Quest {quest_ip}:{quest_port} interval={args.interval}s min_delta={args.min_delta}"
     )
 
     while True:
@@ -219,10 +363,10 @@ def cmd_run(args: argparse.Namespace) -> None:
             reading = dex.get_current_glucose_reading()
             bg = reading_value(reading)
             trend = reading_trend(dex, reading)
-            arrow = trend_arrow(trend)
+            dir_arrow = arrow(trend)
 
             if last_bg is None or abs(bg - last_bg) >= args.min_delta:
-                msg = f"BG {bg} {arrow}".strip()
+                msg = f"BG {bg} {dir_arrow}".strip()
                 client.send_message("/chatbox/input", [msg, True])
                 print("Sent:", msg)
                 last_bg = bg
@@ -252,8 +396,18 @@ def build_parser() -> argparse.ArgumentParser:
     s_setup.set_defaults(func=cmd_setup)
 
     s_run = sub.add_parser("run", help="Run the bridge")
-    s_run.add_argument("--quest-ip", default="192.168.98.146")
+    s_run.add_argument(
+        "--quest-ip",
+        default="auto",
+        help="Quest VRChat IP, or 'auto' to discover via OSCQuery",
+    )
     s_run.add_argument("--quest-port", type=int, default=9000)
+    s_run.add_argument(
+        "--oscquery-timeout",
+        type=float,
+        default=5.0,
+        help="Seconds to wait for OSCQuery auto-discovery when --quest-ip=auto",
+    )
     s_run.add_argument("--interval", type=int, default=30)
     s_run.add_argument("--min-delta", type=int, default=2)
     s_run.set_defaults(func=cmd_run)

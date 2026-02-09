@@ -1,3 +1,4 @@
 cryptography
 python-osc
 pydexcom
+zeroconf

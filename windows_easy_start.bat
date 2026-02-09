@@ -22,7 +22,7 @@ if not exist ".venv\Scripts\python.exe" (
 
 set "VENV_PY=.venv\Scripts\python.exe"
 
-"%VENV_PY%" -c "import cryptography, pythonosc, pydexcom" >nul 2>nul
+"%VENV_PY%" -c "import cryptography, pythonosc, pydexcom, zeroconf" >nul 2>nul
 if errorlevel 1 (
   echo Installing dependencies...
   "%VENV_PY%" -m pip install --upgrade pip
@@ -31,7 +31,7 @@ if errorlevel 1 (
   "%VENV_PY%" -m pip install -r requirements.txt
   if errorlevel 1 (
     echo Standard install failed. Trying pydexcom GitHub fallback...
-    "%VENV_PY%" -m pip install python-osc cryptography "git+https://github.com/gagebenne/pydexcom"
+    "%VENV_PY%" -m pip install python-osc cryptography zeroconf "git+https://github.com/gagebenne/pydexcom"
     if errorlevel 1 goto :fail
   )
 )
@@ -50,10 +50,10 @@ if not exist "%CRED_FILE%" (
 )
 
 echo.
-set "QUEST_IP=192.168.98.146"
+set "QUEST_IP=auto"
 set "QUEST_PORT=9000"
-set /p QUEST_IP=Quest IP (default 192.168.98.146):
-if "%QUEST_IP%"=="" set "QUEST_IP=192.168.98.146"
+set /p QUEST_IP=Quest IP (default auto via OSCQuery):
+if "%QUEST_IP%"=="" set "QUEST_IP=auto"
 set /p QUEST_PORT=Quest port (default 9000):
 if "%QUEST_PORT%"=="" set "QUEST_PORT=9000"
 

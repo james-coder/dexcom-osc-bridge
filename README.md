@@ -8,7 +8,7 @@ Dexcom Share -> Quest chatbox OSC bridge, matching Home Assistant's Share-style 
 2. Open this repo folder.
 3. Double-click `windows_easy_start.bat`.
 4. On first run, it will create `.venv`, install dependencies, ask for region, and run credential setup.
-5. Enter your Quest IP/port and it starts the bridge.
+5. Leave Quest IP as `auto` to detect via OSCQuery (or enter it manually), then it starts the bridge.
 
 ## Install
 
@@ -19,7 +19,7 @@ python3 -m pip install -r requirements.txt
 If `pydexcom` is unavailable on your index, install from GitHub:
 
 ```bash
-python3 -m pip install python-osc cryptography git+https://github.com/gagebenne/pydexcom
+python3 -m pip install python-osc cryptography zeroconf git+https://github.com/gagebenne/pydexcom
 ```
 
 ## Usage
@@ -33,6 +33,12 @@ python3 dexcom_share_to_quest3.py setup --region us
 Run bridge:
 
 ```bash
+python3 dexcom_share_to_quest3.py run --quest-ip auto --quest-port 9000
+```
+
+Manual IP override:
+
+```bash
 python3 dexcom_share_to_quest3.py run --quest-ip 192.168.98.146 --quest-port 9000
 ```
 
@@ -40,5 +46,6 @@ python3 dexcom_share_to_quest3.py run --quest-ip 192.168.98.146 --quest-port 900
 
 - Dexcom Share must be enabled and publisher credentials are required.
 - Region must match your account endpoint: `us`, `ous`, or `jp`.
+- OSCQuery auto-detect requires VRChat running with OSC enabled and both devices on the same LAN.
 - Default credential path:
 `%APPDATA%\dexcom-osc-bridge\dexcom_credentials.json` on Windows, or `~/.config/dexcom-osc-bridge/dexcom_credentials.json` on Linux/macOS.
