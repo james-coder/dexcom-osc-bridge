@@ -391,11 +391,13 @@ def build_parser() -> argparse.ArgumentParser:
     sub = parser.add_subparsers(dest="cmd", required=True)
 
     s_setup = sub.add_parser("setup", help="Store Dexcom credentials encrypted in a local file")
+    s_setup.add_argument("--cred-file", default=argparse.SUPPRESS, help=argparse.SUPPRESS)
     s_setup.add_argument("--region", default="us", help="us | ous | jp")
     s_setup.add_argument("--username", default=None)
     s_setup.set_defaults(func=cmd_setup)
 
     s_run = sub.add_parser("run", help="Run the bridge")
+    s_run.add_argument("--cred-file", default=argparse.SUPPRESS, help=argparse.SUPPRESS)
     s_run.add_argument(
         "--quest-ip",
         default="auto",
