@@ -28,7 +28,7 @@ Steps:
 3. On your Quest, open VRChat settings and enable OSC.
 4. Double-click `windows_easy_start.bat`.
 5. During first-time setup, enter Dexcom password once (or choose visible password entry).
-6. On later runs, you can choose to re-enter Dexcom credentials when prompted.
+6. On later runs, saved credentials are reused automatically.
 7. Leave Quest IP as `auto` (recommended) for OSCQuery detection, or enter it manually.
 8. If messages do not show up in VRChat, turn on VRChat OSC debugging and confirm `/chatbox/input` is being received.
 
