@@ -33,6 +33,28 @@ Auto-update note:
 - If you downloaded a ZIP, there is no `.git` folder, so auto-update is skipped.
 - For automatic pull updates, clone with git instead of ZIP.
 
+### Git for auto-update (optional)
+
+Use this only if you want `windows_easy_start.bat` to auto-pull updates.
+
+1. Install Git for Windows: https://git-scm.com/download/win
+2. Open a new `cmd.exe` window and run:
+
+```bat
+git --version
+where git
+```
+
+If both commands work, Git is available on PATH.
+
+To use auto-update, clone the repo instead of using ZIP:
+
+```bat
+git clone https://github.com/james-coder/dexcom-osc-bridge.git
+cd dexcom-osc-bridge
+windows_easy_start.bat
+```
+
 ## Manual setup (optional)
 
 Use this only if you do not want to use the `.bat` file (or are on Linux/macOS).
