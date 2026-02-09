@@ -15,8 +15,10 @@ If you use `windows_easy_start.bat`, you do not need to run any `pip install` co
 Steps:
 1. Install Python 3 for Windows from https://www.python.org/downloads/windows/ and enable "Add python.exe to PATH".
 2. Open this repo folder.
-3. Double-click `windows_easy_start.bat`.
-4. Leave Quest IP as `auto` (recommended) for OSCQuery detection, or enter it manually.
+3. On your Quest, open VRChat settings and enable OSC.
+4. Double-click `windows_easy_start.bat`.
+5. Leave Quest IP as `auto` (recommended) for OSCQuery detection, or enter it manually.
+6. If messages do not show up in VRChat, turn on VRChat OSC debugging and confirm `/chatbox/input` is being received.
 
 ## Manual setup (optional)
 
@@ -57,5 +59,6 @@ python3 dexcom_share_to_quest3.py run --quest-ip 192.168.98.146 --quest-port 900
 - Dexcom Share must be enabled and publisher credentials are required.
 - Region must match your account endpoint: `us`, `ous`, or `jp`.
 - OSCQuery auto-detect requires VRChat running with OSC enabled and both devices on the same LAN.
+- For Quest troubleshooting, use VRChat OSC debugging to verify OSC traffic while the bridge is running.
 - Default credential path:
 `%APPDATA%\dexcom-osc-bridge\dexcom_credentials.json` on Windows, or `~/.config/dexcom-osc-bridge/dexcom_credentials.json` on Linux/macOS.
