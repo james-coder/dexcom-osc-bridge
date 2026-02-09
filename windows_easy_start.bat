@@ -46,7 +46,7 @@ if not exist "%CRED_FILE%" (
   echo.
   echo First-time setup: encrypted Dexcom credentials not found.
   set "REGION=us"
-  set /p REGION=Enter region [us/ous/jp] (default us):
+  set /p REGION=Enter region [us/ous/jp] ^(default us^):
   if "%REGION%"=="" set "REGION=us"
 
   "%VENV_PY%" dexcom_share_to_quest3.py setup --cred-file "%CRED_FILE%" --region "%REGION%"
