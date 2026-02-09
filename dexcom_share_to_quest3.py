@@ -10,15 +10,30 @@ import getpass
 from pathlib import Path
 from typing import Any
 
+
+def dependency_error(package_name: str) -> SystemExit:
+    return SystemExit(
+        f"Missing dependency '{package_name}'. Install with: pip install -r requirements.txt"
+    )
+
+
 def default_cred_path() -> Path:
-    cfg_dir = Path.home() / ".config" / "dexcom-osc-bridge"
+    if os.name == "nt":
+        appdata = os.environ.get("APPDATA")
+        base_dir = Path(appdata) if appdata else (Path.home() / "AppData" / "Roaming")
+        cfg_dir = base_dir / "dexcom-osc-bridge"
+    else:
+        cfg_dir = Path.home() / ".config" / "dexcom-osc-bridge"
     cfg_dir.mkdir(parents=True, exist_ok=True)
     return cfg_dir / "dexcom_credentials.json"
 
 
 def derive_fernet_key(master_passphrase: str, salt: bytes) -> bytes:
-    from cryptography.hazmat.primitives import hashes
-    from cryptography.hazmat.primitives.kdf.pbkdf2 import PBKDF2HMAC
+    try:
+        from cryptography.hazmat.primitives import hashes
+        from cryptography.hazmat.primitives.kdf.pbkdf2 import PBKDF2HMAC
+    except ModuleNotFoundError as exc:
+        raise dependency_error("cryptography") from exc
 
     kdf = PBKDF2HMAC(
         algorithm=hashes.SHA256(),
@@ -30,7 +45,10 @@ def derive_fernet_key(master_passphrase: str, salt: bytes) -> bytes:
 
 
 def encrypt_password(password: str, master_passphrase: str) -> dict[str, str]:
-    from cryptography.fernet import Fernet
+    try:
+        from cryptography.fernet import Fernet
+    except ModuleNotFoundError as exc:
+        raise dependency_error("cryptography") from exc
 
     salt = os.urandom(16)
     key = derive_fernet_key(master_passphrase, salt)
@@ -42,7 +60,10 @@ def encrypt_password(password: str, master_passphrase: str) -> dict[str, str]:
 
 
 def decrypt_password(blob: dict[str, str], master_passphrase: str) -> str:
-    from cryptography.fernet import Fernet
+    try:
+        from cryptography.fernet import Fernet
+    except ModuleNotFoundError as exc:
+        raise dependency_error("cryptography") from exc
 
     salt = base64.b64decode(blob["salt_b64"])
     key = derive_fernet_key(master_passphrase, salt)
@@ -59,7 +80,10 @@ def save_credentials(path: Path, region: str, username: str, encrypted_pw_blob: 
         "encrypted_password": encrypted_pw_blob,
     }
     path.write_text(json.dumps(payload, indent=2), encoding="utf-8")
-    os.chmod(path, 0o600)
+    try:
+        os.chmod(path, 0o600)
+    except OSError:
+        pass
 
 
 def load_credentials(path: Path) -> dict[str, Any]:
@@ -93,7 +117,10 @@ def normalize_region(region: str) -> str:
 
 
 def create_dexcom_client(username: str, password: str, region: str) -> Any:
-    from pydexcom import Dexcom
+    try:
+        from pydexcom import Dexcom
+    except ModuleNotFoundError as exc:
+        raise dependency_error("pydexcom") from exc
 
     attempts = [
         {"region": region},
@@ -163,7 +190,10 @@ def cmd_setup(args: argparse.Namespace) -> None:
 
 
 def cmd_run(args: argparse.Namespace) -> None:
-    from pythonosc.udp_client import SimpleUDPClient
+    try:
+        from pythonosc.udp_client import SimpleUDPClient
+    except ModuleNotFoundError as exc:
+        raise dependency_error("python-osc") from exc
 
     cred_path = Path(args.cred_file).expanduser()
     if not cred_path.exists():
