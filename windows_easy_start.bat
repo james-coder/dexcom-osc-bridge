@@ -36,7 +36,11 @@ if errorlevel 1 (
   )
 )
 
-for /f "delims=" %%I in ('"%VENV_PY%" -c "from dexcom_share_to_quest3 import default_cred_path; print(default_cred_path())"') do set "CRED_FILE=%%I"
+if defined APPDATA (
+  set "CRED_FILE=%APPDATA%\dexcom-osc-bridge\dexcom_credentials.json"
+) else (
+  set "CRED_FILE=%USERPROFILE%\AppData\Roaming\dexcom-osc-bridge\dexcom_credentials.json"
+)
 
 if not exist "%CRED_FILE%" (
   echo.
@@ -45,7 +49,7 @@ if not exist "%CRED_FILE%" (
   set /p REGION=Enter region [us/ous/jp] (default us):
   if "%REGION%"=="" set "REGION=us"
 
-  "%VENV_PY%" dexcom_share_to_quest3.py setup --region "%REGION%"
+  "%VENV_PY%" dexcom_share_to_quest3.py setup --cred-file "%CRED_FILE%" --region "%REGION%"
   if errorlevel 1 goto :fail
 )
 
@@ -59,7 +63,7 @@ if "%QUEST_PORT%"=="" set "QUEST_PORT=9000"
 
 echo.
 echo Starting Dexcom Share -> Quest bridge...
-"%VENV_PY%" dexcom_share_to_quest3.py run --quest-ip "%QUEST_IP%" --quest-port "%QUEST_PORT%"
+"%VENV_PY%" dexcom_share_to_quest3.py run --cred-file "%CRED_FILE%" --quest-ip "%QUEST_IP%" --quest-port "%QUEST_PORT%"
 if errorlevel 1 goto :fail
 exit /b 0
 
