@@ -372,15 +372,11 @@ def cmd_setup(args: argparse.Namespace) -> None:
 
     if args.visible_password:
         dex_pw = input("Dexcom password (visible): ").strip()
-        dex_pw_confirm = input("Re-enter Dexcom password: ").strip()
     else:
         dex_pw = getpass.getpass("Dexcom password (hidden): ").strip()
-        dex_pw_confirm = getpass.getpass("Re-enter Dexcom password: ").strip()
 
     if not dex_pw:
         raise SystemExit("Dexcom password is required.")
-    if dex_pw != dex_pw_confirm:
-        raise SystemExit("Dexcom password entries did not match. Aborting.")
 
     master1 = getpass.getpass("Create master passphrase (hidden): ").strip()
     master2 = getpass.getpass("Re-enter master passphrase: ").strip()
