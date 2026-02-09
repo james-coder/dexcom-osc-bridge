@@ -75,10 +75,21 @@ if defined APPDATA (
   set "CRED_FILE=%USERPROFILE%\AppData\Roaming\dexcom-osc-bridge\dexcom_credentials.json"
 )
 
+set "RUN_SETUP=n"
+if exist "%CRED_FILE%" (
+  echo.
+  set /p RUN_SETUP=Re-enter Dexcom credentials now? [y/N]:
+)
+if /I "%RUN_SETUP%"=="y" goto :do_setup
 if exist "%CRED_FILE%" goto :run_prompt
 
+:do_setup
 echo.
-echo First-time setup: encrypted Dexcom credentials not found.
+if exist "%CRED_FILE%" (
+  echo Running credential setup.
+) else (
+  echo First-time setup: encrypted Dexcom credentials not found.
+)
 set "REGION=us"
 set /p REGION=Enter region [us/ous/jp] (default us):
 if "%REGION%"=="" set "REGION=us"
