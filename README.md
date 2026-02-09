@@ -104,6 +104,28 @@ Run bridge (manual Quest IP):
 python3 dexcom_share_to_quest3.py run --quest-ip 192.168.98.146 --quest-port 9000
 ```
 
+## Reset credentials
+
+If you need to re-enter Dexcom credentials, use either method:
+
+1. Re-run setup directly against your credential file:
+
+```bat
+python3 dexcom_share_to_quest3.py --cred-file "%APPDATA%\dexcom-osc-bridge\dexcom_credentials.json" setup --region us
+```
+
+2. Delete the credential file, then run `windows_easy_start.bat`:
+
+```bat
+del "%APPDATA%\dexcom-osc-bridge\dexcom_credentials.json"
+```
+
+Linux/macOS equivalent path:
+
+```bash
+~/.config/dexcom-osc-bridge/dexcom_credentials.json
+```
+
 ## Notes
 
 - Dexcom Share must be enabled and publisher credentials are required.
