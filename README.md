@@ -16,6 +16,7 @@ If you use `windows_easy_start.bat`, you do not need to run any `pip install` co
 
 `windows_easy_start.bat` does all of this for you:
 - auto-updates from GitHub if `git` is installed and this folder is a git clone
+- prints the current build hash at startup
 - creates `.venv`
 - installs dependencies (`cryptography`, `python-osc`, `pydexcom`, `zeroconf`)
 - runs first-time Dexcom credential setup
@@ -53,6 +54,12 @@ To use auto-update, clone the repo instead of using ZIP:
 git clone https://github.com/james-coder/dexcom-osc-bridge.git
 cd dexcom-osc-bridge
 windows_easy_start.bat
+```
+
+You can also print the running build hash manually:
+
+```bat
+.venv\Scripts\python.exe dexcom_share_to_quest3.py --version
 ```
 
 ## Manual setup (optional)

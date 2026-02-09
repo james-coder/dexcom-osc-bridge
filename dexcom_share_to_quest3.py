@@ -8,6 +8,7 @@ import os
 import time
 import getpass
 import socket
+import subprocess
 import threading
 from pathlib import Path
 from typing import Any
@@ -20,6 +21,40 @@ def dependency_error(package_name: str) -> SystemExit:
 
 
 OSCQUERY_SERVICE_TYPE = "_oscjson._tcp.local."
+_BUILD_ID: str | None = None
+
+
+def resolve_build_id() -> str:
+    global _BUILD_ID
+    if _BUILD_ID is not None:
+        return _BUILD_ID
+
+    env_value = os.environ.get("DEXCOM_BRIDGE_BUILD", "").strip()
+    if env_value:
+        _BUILD_ID = env_value
+        return _BUILD_ID
+
+    script_dir = Path(__file__).resolve().parent
+    git_dir = script_dir / ".git"
+    if git_dir.exists():
+        try:
+            proc = subprocess.run(
+                ["git", "rev-parse", "--short", "HEAD"],
+                cwd=str(script_dir),
+                capture_output=True,
+                text=True,
+                timeout=1.5,
+                check=False,
+            )
+            candidate = proc.stdout.strip()
+            if proc.returncode == 0 and candidate:
+                _BUILD_ID = candidate
+                return _BUILD_ID
+        except Exception:
+            pass
+
+    _BUILD_ID = "unknown"
+    return _BUILD_ID
 
 
 def default_cred_path() -> Path:
@@ -345,6 +380,7 @@ def cmd_run(args: argparse.Namespace) -> None:
     master = getpass.getpass("Master passphrase (hidden): ").strip()
     password = decrypt_password(cfg["encrypted_password"], master)
     dex = create_dexcom_client(username=username, password=password, region=region)
+    build_id = resolve_build_id()
 
     quest_ip, quest_port = resolve_quest_endpoint(
         quest_ip=args.quest_ip,
@@ -353,6 +389,7 @@ def cmd_run(args: argparse.Namespace) -> None:
     )
     client = SimpleUDPClient(quest_ip, quest_port)
     last_bg = None
+    print(f"dexcom-osc-bridge build: {build_id}")
     print(
         "Running Dexcom(Share)->OSC: "
         f"Quest {quest_ip}:{quest_port} interval={args.interval}s min_delta={args.min_delta}"
@@ -386,6 +423,11 @@ def build_parser() -> argparse.ArgumentParser:
         "--cred-file",
         default=str(default_cred_path()),
         help="Path to encrypted credential JSON",
+    )
+    parser.add_argument(
+        "--version",
+        action="version",
+        version=f"%(prog)s build {resolve_build_id()}",
     )
 
     sub = parser.add_subparsers(dest="cmd", required=True)

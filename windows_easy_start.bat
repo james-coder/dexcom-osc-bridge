@@ -1,23 +1,28 @@
 @echo off
-setlocal enableextensions
+setlocal enableextensions enabledelayedexpansion
 cd /d "%~dp0"
 
+set "GIT_SHA=unknown"
 where git >nul 2>nul
 if errorlevel 1 (
   echo Git not found. Skipping auto-update.
 ) else (
   if exist ".git" (
+    for /f "delims=" %%I in ('git rev-parse --short HEAD 2^>nul') do set "GIT_SHA=%%I"
     echo Checking for updates from GitHub...
     git pull --ff-only >nul 2>nul
     if errorlevel 1 (
       echo Git auto-update failed. Continuing with local files.
     ) else (
+      for /f "delims=" %%I in ('git rev-parse --short HEAD 2^>nul') do set "GIT_SHA=%%I"
       echo Git auto-update complete.
     )
   ) else (
     echo Git found, but this folder is not a git clone. Skipping auto-update.
   )
 )
+echo Running dexcom-osc-bridge build !GIT_SHA!
+set "DEXCOM_BRIDGE_BUILD=!GIT_SHA!"
 
 if not exist ".venv\Scripts\python.exe" (
   echo Creating local virtual environment...
@@ -64,9 +69,9 @@ if not exist "%CRED_FILE%" (
   echo First-time setup: encrypted Dexcom credentials not found.
   set "REGION=us"
   set /p REGION=Enter region [us/ous/jp] ^(default us^):
-  if "%REGION%"=="" set "REGION=us"
+  if "!REGION!"=="" set "REGION=us"
 
-  "%VENV_PY%" dexcom_share_to_quest3.py --cred-file "%CRED_FILE%" setup --region "%REGION%"
+  "%VENV_PY%" dexcom_share_to_quest3.py --cred-file "%CRED_FILE%" setup --region "!REGION!"
   if errorlevel 1 goto :fail
 )
 
