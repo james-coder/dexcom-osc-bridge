@@ -1,80 +1,92 @@
 @echo off
-setlocal enableextensions enabledelayedexpansion
+setlocal enableextensions
 cd /d "%~dp0"
 
 set "GIT_SHA=unknown"
+
 where git >nul 2>nul
+if errorlevel 1 goto :no_git
+if not exist ".git" goto :not_clone
+
+echo Checking for updates from GitHub...
+git pull --ff-only >nul 2>nul
 if errorlevel 1 (
-  echo Git not found. Skipping auto-update.
+  echo Git auto-update failed. Continuing with local files.
 ) else (
-  if exist ".git" (
-    for /f "delims=" %%I in ('git rev-parse --short HEAD 2^>nul') do set "GIT_SHA=%%I"
-    echo Checking for updates from GitHub...
-    git pull --ff-only >nul 2>nul
-    if errorlevel 1 (
-      echo Git auto-update failed. Continuing with local files.
-    ) else (
-      for /f "delims=" %%I in ('git rev-parse --short HEAD 2^>nul') do set "GIT_SHA=%%I"
-      echo Git auto-update complete.
-    )
-  ) else (
-    echo Git found, but this folder is not a git clone. Skipping auto-update.
-  )
+  echo Git auto-update complete.
 )
-echo Running dexcom-osc-bridge build !GIT_SHA!
-set "DEXCOM_BRIDGE_BUILD=!GIT_SHA!"
+git rev-parse --short HEAD > "%TEMP%\dexcom_bridge_sha.txt" 2>nul
+if exist "%TEMP%\dexcom_bridge_sha.txt" set /p GIT_SHA=<"%TEMP%\dexcom_bridge_sha.txt"
+del "%TEMP%\dexcom_bridge_sha.txt" >nul 2>nul
+goto :after_git
 
-if not exist ".venv\Scripts\python.exe" (
-  echo Creating local virtual environment...
-  where py >nul 2>nul
-  if errorlevel 1 (
-    where python >nul 2>nul
-    if errorlevel 1 (
-      echo Python 3 is not installed or not on PATH.
-      echo Install from https://www.python.org/downloads/windows/
-      pause
-      exit /b 1
-    )
-    python -m venv .venv
-  ) else (
-    py -3 -m venv .venv
-  )
-  if errorlevel 1 goto :fail
+:no_git
+echo Git not found. Skipping auto-update.
+goto :after_git
+
+:not_clone
+echo Git found, but this folder is not a git clone. Skipping auto-update.
+
+:after_git
+echo Running dexcom-osc-bridge build %GIT_SHA%
+set "DEXCOM_BRIDGE_BUILD=%GIT_SHA%"
+
+if exist ".venv\Scripts\python.exe" goto :have_venv
+
+echo Creating local virtual environment...
+where py >nul 2>nul
+if errorlevel 1 goto :try_python
+py -3 -m venv .venv
+if errorlevel 1 goto :fail
+goto :have_venv
+
+:try_python
+where python >nul 2>nul
+if errorlevel 1 (
+  echo Python 3 is not installed or not on PATH.
+  echo Install from https://www.python.org/downloads/windows/
+  pause
+  exit /b 1
 )
+python -m venv .venv
+if errorlevel 1 goto :fail
 
+:have_venv
 set "VENV_PY=.venv\Scripts\python.exe"
 
 "%VENV_PY%" -c "import cryptography, pythonosc, pydexcom, zeroconf" >nul 2>nul
-if errorlevel 1 (
-  echo Installing dependencies...
-  "%VENV_PY%" -m pip install --upgrade pip
-  if errorlevel 1 goto :fail
+if not errorlevel 1 goto :deps_ok
 
-  "%VENV_PY%" -m pip install -r requirements.txt
-  if errorlevel 1 (
-    echo Standard install failed. Trying pydexcom GitHub fallback...
-    "%VENV_PY%" -m pip install python-osc cryptography zeroconf "git+https://github.com/gagebenne/pydexcom"
-    if errorlevel 1 goto :fail
-  )
+echo Installing dependencies...
+"%VENV_PY%" -m pip install --upgrade pip
+if errorlevel 1 goto :fail
+
+"%VENV_PY%" -m pip install -r requirements.txt
+if errorlevel 1 (
+  echo Standard install failed. Trying pydexcom GitHub fallback...
+  "%VENV_PY%" -m pip install python-osc cryptography zeroconf "git+https://github.com/gagebenne/pydexcom"
+  if errorlevel 1 goto :fail
 )
 
+:deps_ok
 if defined APPDATA (
   set "CRED_FILE=%APPDATA%\dexcom-osc-bridge\dexcom_credentials.json"
 ) else (
   set "CRED_FILE=%USERPROFILE%\AppData\Roaming\dexcom-osc-bridge\dexcom_credentials.json"
 )
 
-if not exist "%CRED_FILE%" (
-  echo.
-  echo First-time setup: encrypted Dexcom credentials not found.
-  set "REGION=us"
-  set /p REGION=Enter region [us/ous/jp] ^(default us^):
-  if "!REGION!"=="" set "REGION=us"
+if exist "%CRED_FILE%" goto :run_prompt
 
-  "%VENV_PY%" dexcom_share_to_quest3.py --cred-file "%CRED_FILE%" setup --region "!REGION!"
-  if errorlevel 1 goto :fail
-)
+echo.
+echo First-time setup: encrypted Dexcom credentials not found.
+set "REGION=us"
+set /p REGION=Enter region [us/ous/jp] (default us):
+if "%REGION%"=="" set "REGION=us"
 
+"%VENV_PY%" dexcom_share_to_quest3.py --cred-file "%CRED_FILE%" setup --region "%REGION%"
+if errorlevel 1 goto :fail
+
+:run_prompt
 echo.
 set "QUEST_IP=auto"
 set "QUEST_PORT=9000"
