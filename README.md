@@ -15,6 +15,7 @@ If you use `windows_easy_start.bat`, you do not need to run any `pip install` co
 ### Run
 
 `windows_easy_start.bat` does all of this for you:
+- auto-updates from GitHub if `git` is installed and this folder is a git clone
 - creates `.venv`
 - installs dependencies (`cryptography`, `python-osc`, `pydexcom`, `zeroconf`)
 - runs first-time Dexcom credential setup
@@ -27,6 +28,10 @@ Steps:
 4. Double-click `windows_easy_start.bat`.
 5. Leave Quest IP as `auto` (recommended) for OSCQuery detection, or enter it manually.
 6. If messages do not show up in VRChat, turn on VRChat OSC debugging and confirm `/chatbox/input` is being received.
+
+Auto-update note:
+- If you downloaded a ZIP, there is no `.git` folder, so auto-update is skipped.
+- For automatic pull updates, clone with git instead of ZIP.
 
 ## Manual setup (optional)
 

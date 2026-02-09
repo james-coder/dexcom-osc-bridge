@@ -2,6 +2,23 @@
 setlocal enableextensions
 cd /d "%~dp0"
 
+where git >nul 2>nul
+if errorlevel 1 (
+  echo Git not found. Skipping auto-update.
+) else (
+  if exist ".git" (
+    echo Checking for updates from GitHub...
+    git pull --ff-only >nul 2>nul
+    if errorlevel 1 (
+      echo Git auto-update failed. Continuing with local files.
+    ) else (
+      echo Git auto-update complete.
+    )
+  ) else (
+    echo Git found, but this folder is not a git clone. Skipping auto-update.
+  )
+)
+
 if not exist ".venv\Scripts\python.exe" (
   echo Creating local virtual environment...
   where py >nul 2>nul
