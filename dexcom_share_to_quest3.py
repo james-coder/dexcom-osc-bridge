@@ -57,6 +57,20 @@ def resolve_build_id() -> str:
     return _BUILD_ID
 
 
+def format_auth_troubleshooting(username: str, region: str, error: Exception) -> str:
+    return (
+        "Dexcom Share authentication failed.\n"
+        f"Configured username: {username}\n"
+        f"Configured region: {region}\n"
+        f"Details: {error}\n\n"
+        "Most common causes:\n"
+        "1. Wrong Dexcom username/email/phone or password.\n"
+        "2. Wrong region (us / ous / jp).\n"
+        "3. Dexcom Share not enabled, or no follower added.\n\n"
+        "Fix by re-running setup and double-checking username, password, and region."
+    )
+
+
 def default_cred_path() -> Path:
     if os.name == "nt":
         appdata = os.environ.get("APPDATA")
@@ -176,6 +190,15 @@ def create_dexcom_client(username: str, password: str, region: str) -> Any:
             errors.append(f"{extra_kwargs}: {exc}")
             continue
     raise RuntimeError(f"Unsupported pydexcom constructor signature. Tried: {' | '.join(errors)}")
+
+
+def verify_dexcom_share_login(username: str, password: str, region: str) -> None:
+    dex = create_dexcom_client(username=username, password=password, region=region)
+    try:
+        dex.get_current_glucose_reading()
+    except Exception:
+        # Login itself succeeded if we got here; missing readings are handled at runtime.
+        pass
 
 
 def reading_value(reading: Any) -> int:
@@ -341,15 +364,23 @@ def resolve_quest_endpoint(quest_ip: str, quest_port: int, timeout_s: float) -> 
 
 def cmd_setup(args: argparse.Namespace) -> None:
     cred_path = Path(args.cred_file).expanduser()
-    region = normalize_region(args.region)
+    region = normalize_region(((args.region or "").strip() or "us"))
 
     username = args.username or input("Dexcom username/email/phone: ").strip()
     if not username:
         raise SystemExit("Username is required.")
 
-    dex_pw = getpass.getpass("Dexcom password (hidden): ").strip()
+    if args.visible_password:
+        dex_pw = input("Dexcom password (visible): ").strip()
+        dex_pw_confirm = input("Re-enter Dexcom password: ").strip()
+    else:
+        dex_pw = getpass.getpass("Dexcom password (hidden): ").strip()
+        dex_pw_confirm = getpass.getpass("Re-enter Dexcom password: ").strip()
+
     if not dex_pw:
         raise SystemExit("Dexcom password is required.")
+    if dex_pw != dex_pw_confirm:
+        raise SystemExit("Dexcom password entries did not match. Aborting.")
 
     master1 = getpass.getpass("Create master passphrase (hidden): ").strip()
     master2 = getpass.getpass("Re-enter master passphrase: ").strip()
@@ -357,6 +388,14 @@ def cmd_setup(args: argparse.Namespace) -> None:
         raise SystemExit("Master passphrase is required.")
     if master1 != master2:
         raise SystemExit("Master passphrases did not match. Aborting.")
+
+    if not args.skip_login_test:
+        print("Verifying Dexcom Share login...")
+        try:
+            verify_dexcom_share_login(username=username, password=dex_pw, region=region)
+        except Exception as exc:
+            raise SystemExit(format_auth_troubleshooting(username=username, region=region, error=exc)) from exc
+        print("Dexcom Share login verified.")
 
     enc_blob = encrypt_password(dex_pw, master1)
     save_credentials(cred_path, region, username, enc_blob)
@@ -378,8 +417,19 @@ def cmd_run(args: argparse.Namespace) -> None:
     username = cfg["username"]
 
     master = getpass.getpass("Master passphrase (hidden): ").strip()
-    password = decrypt_password(cfg["encrypted_password"], master)
-    dex = create_dexcom_client(username=username, password=password, region=region)
+    try:
+        password = decrypt_password(cfg["encrypted_password"], master)
+    except Exception as exc:
+        raise SystemExit(
+            "Failed to decrypt stored Dexcom password. "
+            "Re-run setup and ensure you use the same master passphrase."
+        ) from exc
+
+    try:
+        dex = create_dexcom_client(username=username, password=password, region=region)
+    except Exception as exc:
+        raise SystemExit(format_auth_troubleshooting(username=username, region=region, error=exc)) from exc
+
     build_id = resolve_build_id()
 
     quest_ip, quest_port = resolve_quest_endpoint(
@@ -436,6 +486,16 @@ def build_parser() -> argparse.ArgumentParser:
     s_setup.add_argument("--cred-file", default=argparse.SUPPRESS, help=argparse.SUPPRESS)
     s_setup.add_argument("--region", default="us", help="us | ous | jp")
     s_setup.add_argument("--username", default=None)
+    s_setup.add_argument(
+        "--visible-password",
+        action="store_true",
+        help="Show Dexcom password input while typing (less secure)",
+    )
+    s_setup.add_argument(
+        "--skip-login-test",
+        action="store_true",
+        help="Skip Dexcom Share login verification during setup",
+    )
     s_setup.set_defaults(func=cmd_setup)
 
     s_run = sub.add_parser("run", help="Run the bridge")

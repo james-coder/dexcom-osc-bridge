@@ -82,8 +82,12 @@ echo First-time setup: encrypted Dexcom credentials not found.
 set "REGION=us"
 set /p REGION=Enter region [us/ous/jp] (default us):
 if "%REGION%"=="" set "REGION=us"
+set "VISIBLE_PW=n"
+set /p VISIBLE_PW=Show Dexcom password while typing? [y/N]:
+set "VISIBLE_PW_FLAG="
+if /I "%VISIBLE_PW%"=="y" set "VISIBLE_PW_FLAG=--visible-password"
 
-"%VENV_PY%" dexcom_share_to_quest3.py --cred-file "%CRED_FILE%" setup --region "%REGION%"
+"%VENV_PY%" dexcom_share_to_quest3.py --cred-file "%CRED_FILE%" setup --region "%REGION%" %VISIBLE_PW_FLAG%
 if errorlevel 1 goto :fail
 
 :run_prompt

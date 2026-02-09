@@ -19,7 +19,7 @@ If you use `windows_easy_start.bat`, you do not need to run any `pip install` co
 - prints the current build hash at startup
 - creates `.venv`
 - installs dependencies (`cryptography`, `python-osc`, `pydexcom`, `zeroconf`)
-- runs first-time Dexcom credential setup
+- runs first-time Dexcom credential setup (with login verification)
 - starts the bridge
 
 Steps:
@@ -27,8 +27,9 @@ Steps:
 2. Open the extracted repo folder.
 3. On your Quest, open VRChat settings and enable OSC.
 4. Double-click `windows_easy_start.bat`.
-5. Leave Quest IP as `auto` (recommended) for OSCQuery detection, or enter it manually.
-6. If messages do not show up in VRChat, turn on VRChat OSC debugging and confirm `/chatbox/input` is being received.
+5. During first-time setup, enter Dexcom password twice (or choose visible password entry).
+6. Leave Quest IP as `auto` (recommended) for OSCQuery detection, or enter it manually.
+7. If messages do not show up in VRChat, turn on VRChat OSC debugging and confirm `/chatbox/input` is being received.
 
 Auto-update note:
 - If you downloaded a ZIP, there is no `.git` folder, so auto-update is skipped.
@@ -84,6 +85,12 @@ Set up encrypted credentials once:
 python3 dexcom_share_to_quest3.py setup --region us
 ```
 
+If you want password input to be visible while typing:
+
+```bash
+python3 dexcom_share_to_quest3.py setup --region us --visible-password
+```
+
 Run bridge (auto-detect Quest IP via OSCQuery):
 
 ```bash
@@ -102,5 +109,6 @@ python3 dexcom_share_to_quest3.py run --quest-ip 192.168.98.146 --quest-port 900
 - Region must match your account endpoint: `us`, `ous`, or `jp`.
 - OSCQuery auto-detect requires VRChat running with OSC enabled and both devices on the same LAN.
 - For Quest troubleshooting, use VRChat OSC debugging to verify OSC traffic while the bridge is running.
+- Setup now verifies Dexcom Share login before saving credentials, so auth issues are caught early.
 - Default credential path:
 `%APPDATA%\dexcom-osc-bridge\dexcom_credentials.json` on Windows, or `~/.config/dexcom-osc-bridge/dexcom_credentials.json` on Linux/macOS.
