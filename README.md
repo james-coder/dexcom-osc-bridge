@@ -6,6 +6,14 @@ Dexcom Share -> Quest chatbox OSC bridge, matching Home Assistant's Share-style 
 
 If you use `windows_easy_start.bat`, you do not need to run any `pip install` commands manually.
 
+### Download from GitHub (ZIP)
+
+1. Download: https://github.com/james-coder/dexcom-osc-bridge/archive/refs/heads/master.zip
+2. Right-click the downloaded ZIP and choose "Extract All...".
+3. Open the extracted folder (usually `dexcom-osc-bridge-master`).
+
+### Run
+
 `windows_easy_start.bat` does all of this for you:
 - creates `.venv`
 - installs dependencies (`cryptography`, `python-osc`, `pydexcom`, `zeroconf`)
@@ -14,7 +22,7 @@ If you use `windows_easy_start.bat`, you do not need to run any `pip install` co
 
 Steps:
 1. Install Python 3 for Windows from https://www.python.org/downloads/windows/ and enable "Add python.exe to PATH".
-2. Open this repo folder.
+2. Open the extracted repo folder.
 3. On your Quest, open VRChat settings and enable OSC.
 4. Double-click `windows_easy_start.bat`.
 5. Leave Quest IP as `auto` (recommended) for OSCQuery detection, or enter it manually.
