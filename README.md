@@ -31,6 +31,7 @@ Steps:
 6. On later runs, saved credentials are reused automatically.
 7. Leave Quest IP as `auto` (recommended) for OSCQuery detection, or enter it manually.
 8. If messages do not show up in VRChat, turn on VRChat OSC debugging and confirm `/chatbox/input` is being received.
+9. If launched by double-click, the script keeps the window open on completion/errors so you can read output.
 
 Auto-update note:
 - If you downloaded a ZIP, there is no `.git` folder, so auto-update is skipped.

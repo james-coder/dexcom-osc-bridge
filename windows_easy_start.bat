@@ -2,6 +2,14 @@
 setlocal enableextensions
 cd /d "%~dp0"
 
+echo(%CMDCMDLINE% | findstr /I /C:" /c " >nul
+if not errorlevel 1 (
+  if /I not "%~1"=="--no-relaunch" (
+    start "" cmd /k "\"%~f0\" --no-relaunch"
+    exit /b 0
+  )
+)
+
 set "GIT_SHA=unknown"
 
 where git >nul 2>nul
